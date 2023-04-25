@@ -9,15 +9,21 @@ import com.pblgllgs.account.repository.AccountRepository;
 import com.pblgllgs.account.service.client.CardsFeignClient;
 import com.pblgllgs.account.service.client.LoansFeignClient;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.ratelimiter.annotation.RateLimiter;
 import io.github.resilience4j.retry.annotation.Retry;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 @RestController
 public class AccountController {
+
+    private static final Logger logger = LoggerFactory.getLogger(AccountController.class);
 
     @Autowired
     private AccountRepository accountRepository;
@@ -56,6 +62,7 @@ public class AccountController {
     public CustomerDetails myCustomerDetails(
             @RequestHeader("pblgllgs-correlation-id") String correlationid,
             @RequestBody Customer customer) {
+        logger.info("myCustomerDetails() method started");
         Account accounts = accountRepository.findByCustomerId(customer.getCustomerId());
         List<Loans> loans = loansFeignClient.getLoansDetails(correlationid,customer);
         List<Cards> cards = cardsFeignClient.getCardDetails(correlationid,customer);
@@ -63,17 +70,28 @@ public class AccountController {
         customerDetails.setAccount(accounts);
         customerDetails.setLoans(loans);
         customerDetails.setCards(cards);
+        logger.info("myCustomerDetails() method ended");
         return customerDetails;
     }
 
     private CustomerDetails myCustomerDetailsFallBack(
             @RequestHeader("pblgllgs-correlation-id") String correlationid,
             Customer customer, Throwable t) {
-        Account accounts = accountRepository.findByCustomerId(customer.getCustomerId());
+        Account account = accountRepository.findByCustomerId(customer.getCustomerId());
         List<Loans> loans = loansFeignClient.getLoansDetails(correlationid,customer);
         CustomerDetails customerDetails = new CustomerDetails();
-        customerDetails.setAccount(accounts);
+        customerDetails.setAccount(account);
         customerDetails.setLoans(loans);
         return customerDetails;
+    }
+
+    @GetMapping("/sayHello")
+    @RateLimiter(name = "sayHello", fallbackMethod = "sayHelloFallback")
+    public String sayHello(){
+        return "Hello Spring Boot";
+    }
+
+    private String sayHelloFallback(Throwable t){
+        return "Hi, Spring Boot";
     }
 }

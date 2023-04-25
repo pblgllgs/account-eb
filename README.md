@@ -11,3 +11,8 @@ mvn clean install
 ```$bash
 mvn spring-boot:build-image
 ```
+
+## push image
+```$bash
+docker push pblgllgs/account-eb:latest
+```
